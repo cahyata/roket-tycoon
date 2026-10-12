@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roket Tycoon - Kelola Base Peluncuran</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">🚀 <b>ROKET</b> Tycoon</div>
+  <div class="user"><span id="u-name" class="mut"></span><button id="u-btn">Masuk</button></div>
+</header>
+<div id="layout">
+  <nav id="tabs"></nav>
+  <div id="content">
+    <div id="summary">
+  <div class="stats">
+    <span title="Uang">💰 <b id="s-money">0</b></span>
+    <span title="Poin riset">🔬 <b id="s-rp">0</b></span>
+    <span title="Bahan bakar">⛽ <b id="s-fuel">0</b>/<span id="s-fuelmax">0</span></span>
+    <span title="Reputasi">⭐ <b id="s-rep">0</b></span>
+    <span title="Hari">📅 Hari <b id="s-day">1</b></span>
+  </div>
+    </div>
+    <main id="view"></main>
+  </div>
+</div>
+<div id="toast-box"></div>
+<div id="launch-overlay" class="hidden">
+  <div class="sky">
+    <div id="launch-rocket">🚀</div>
+    <div id="launch-flame"></div>
+    <div class="ground"></div>
+  </div>
+  <div id="launch-text">Hitung mundur…</div>
+  <button id="launch-close" class="hidden">Tutup</button>
+</div>
+<div id="auth" class="hidden"><div class="box">
+  <h3>🚀 Masuk ke ROKET</h3><p class="mut">Progres tersimpan di database per akun.</p>
+  <input id="a-user" placeholder="Username" autocomplete="username"><input id="a-pass" type="password" placeholder="Password (min 6)" autocomplete="current-password">
+  <div id="auth-err"></div>
+  <div class="row"><button class="btn" id="a-login">Masuk</button><button class="btn alt" id="a-reg">Daftar</button><button class="btn danger" id="a-guest">Main tanpa akun</button></div>
+</div></div>
+<script src="game.js"></script>
+</body>
+</html>
