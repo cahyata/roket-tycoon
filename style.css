@@ -89,4 +89,19 @@ table.hist{width:100%;border-collapse:collapse;font-size:13px}table.hist td{padd
 
 table.eng th{font-size:12px;color:var(--mut);text-align:left;padding:3px 6px}table.eng td{padding:5px 6px;vertical-align:top}
 table.eng tr.dim td{opacity:.75}table.eng .btn{margin:2px 2px 0 0;padding:4px 8px;font-size:12px}
+/* ---- Petunjuk bermain ---- */
+#guide-btn{margin-top:auto;border-color:var(--acc)!important;color:var(--txt)!important}
+#guide{position:fixed;inset:0;background:#000b;z-index:36;display:flex;align-items:center;justify-content:center;padding:12px}
+#guide .box{background:var(--panel);border:1px solid var(--acc);border-radius:12px;padding:20px;width:min(480px,100%);max-height:100%;overflow-y:auto}
+#guide ul{margin:8px 0 4px;padding-left:20px}#guide li{margin:6px 0}
+#guide .g-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+#guide .g-dots{display:flex;gap:6px;margin:10px 0 0}
+#guide .g-dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}#guide .g-dots i.on{background:var(--acc)}
+#guide .g-off{margin:10px 0 6px;font-size:13px;color:var(--mut)}
+#guide.tour{background:transparent;display:block;padding:0}
+#guide .g-spot{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px #000a;border:2px solid var(--acc);pointer-events:none;transition:all .25s}
+#guide .g-pop{position:fixed;width:340px;padding:14px 16px}
+#guide .g-pop p{margin:6px 0 4px}
+#guide .a-bottom{top:0}#guide .a-top{top:100%}#guide .a-right{left:0}#guide .a-left{left:100%}
+#guide .g-arrow{position:absolute;width:16px;height:16px;background:var(--acc);transform:rotate(45deg);margin:-8px;border-radius:2px}
 .advice{margin-top:10px;padding:8px;border:1px dashed var(--acc);border-radius:8px}

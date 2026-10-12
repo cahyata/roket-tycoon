@@ -44,8 +44,8 @@ const hashPw = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString('hex');
 const send = (res, code, obj) => { res.writeHead(code, {'Content-Type': 'application/json'}); res.end(JSON.stringify(obj)); };
 const body = req => new Promise((ok, no) => { let b = ''; req.on('data', c => { b += c; if (b.length > 2e6) { req.destroy(); no(); } }); req.on('end', () => { try { ok(JSON.parse(b || '{}')); } catch (e) { ok({}); } }); });
 const authUser = req => { const m = /^Bearer (.+)$/.exec(req.headers.authorization || ''); return m ? db.session(m[1]) : null; };
-const MIME = {'.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.ico': 'image/x-icon'};
-const STATIC = new Set(['/index.html', '/style.css', '/game.js']);
+const MIME = {'.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.ico': 'image/x-icon', '.svg': 'image/svg+xml'};
+const STATIC = new Set(['/index.html', '/style.css', '/game.js', '/favicon.svg', '/favicon.ico', '/favicon-32.png', '/apple-touch-icon.png']);
 const tries = {};
 function throttled(ip) { const t = Date.now(); tries[ip] = (tries[ip] || []).filter(x => t - x < 60000); tries[ip].push(t); return tries[ip].length > 20; }
 

@@ -624,7 +624,8 @@ function viewLog() { return `<h2>Log</h2><div class="card log">${S.log.map(l => 
 
 function render() {
   const tabs = document.getElementById('tabs');
-  tabs.innerHTML = TABS.map(([k, n], i) => { const sp = n.indexOf(' '); return `<button data-act="tab" data-k="${k}" data-key="${i + 1}" title="${n.slice(sp + 1)} (${i + 1})" class="${S.tab === k ? 'on' : ''}"><span class="ico">${n.slice(0, sp)}</span><span class="lbl">${n.slice(sp + 1)}</span><kbd>${i + 1}</kbd></button>`; }).join('');
+  tabs.innerHTML = TABS.map(([k, n], i) => { const sp = n.indexOf(' '); return `<button data-act="tab" data-k="${k}" data-key="${i + 1}" title="${n.slice(sp + 1)} (${i + 1})" class="${S.tab === k ? 'on' : ''}"><span class="ico">${n.slice(0, sp)}</span><span class="lbl">${n.slice(sp + 1)}</span><kbd>${i + 1}</kbd></button>`; }).join('')
+    + `<button data-act="guide" id="guide-btn" title="Petunjuk bermain (N)"><span class="ico">📖</span><span class="lbl">Petunjuk</span><kbd>N</kbd></button>`;
   const v = {base: viewBase, fac: viewFac, staff: viewStaff, tech: viewTech, hangar: viewHangar, mis: viewMis, log: viewLog}[S.tab];
   // preserve rocket selection in missions across re-renders is unnecessary; day change resets it
   document.getElementById('view').innerHTML = v();
@@ -647,7 +648,8 @@ document.addEventListener('click', e => {
   else if (a === 'qbuild') quickBuild(k ? +k : null);
   else if (a === 'test') staticTest();
   else if (a === 'grant') emergencyGrant();
-  else if (a === 'reset') { if (confirm('Hapus semua progres?')) { localStorage.removeItem(SAVE_KEY + (AUTH.user ? '_' + AUTH.user : '')); S = newState(); refreshContracts(); render(); save(); } }
+  else if (a === 'guide') openGuide(-1);
+  else if (a === 'reset') { if (confirm('Hapus semua progres?')) { const off = S.guideOff; localStorage.removeItem(SAVE_KEY + (AUTH.user ? '_' + AUTH.user : '')); S = newState(); S.guideOff = off; refreshContracts(); render(); save(); if (!off) openGuide(-1); } }
 });
 document.addEventListener('change', e => {
   if (e.target.dataset.act === 'bsel') {
@@ -687,7 +689,7 @@ function assignKeys() {
 }
 const visible = el => el && !el.classList.contains('hidden');
 function helpHtml() {
-  const rows = [['1-7', 'Pindah tab'], ['S', 'Simpan sekarang'], ['?', 'Buka/tutup bantuan ini'], ['Esc / Enter', 'Tutup dialog']];
+  const rows = [['1-7', 'Pindah tab'], ['S', 'Simpan sekarang'], ['N / F1', 'Buka petunjuk bermain'], ['?', 'Buka/tutup bantuan ini'], ['Esc / Enter', 'Tutup dialog']];
   const ctx = {
     fac: [['P H L B C', 'Upgrade Pad, Hangar, Lab, Bahan bakar, Control']],
     staff: [['I U T', 'Rekrut Insinyur, Ilmuwan, Teknisi']],
@@ -707,14 +709,18 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-  const help = document.getElementById('help'), lo = document.getElementById('launch-overlay'), auth = document.getElementById('auth');
+  const help = document.getElementById('help'), lo = document.getElementById('launch-overlay'), auth = document.getElementById('auth'), guide = document.getElementById('guide');
   if (key === 'Escape' || (key === 'Enter' && visible(lo) && visible(document.getElementById('launch-close')))) {
+    if (visible(guide)) { closeGuide(); e.preventDefault(); return; }
     if (visible(help)) return toggleHelp(false);
     const lc = document.getElementById('launch-close');
     if (visible(lo) && visible(lc)) { lc.click(); e.preventDefault(); }
     return;
   }
+  if (visible(guide)) { if (key === 'ArrowRight') { guideGo(1); e.preventDefault(); } else if (key === 'ArrowLeft') { guideGo(-1); e.preventDefault(); } return; }
+  if (key === 'F1' && started && !visible(auth) && !visible(lo)) { e.preventDefault(); return openGuide(-1); }
   if (typing || visible(auth) || visible(lo)) return;
+  if (key === 'n' && started && !visible(help)) { e.preventDefault(); return openGuide(-1); }
   if (key === '?' || key === '/') { e.preventDefault(); return toggleHelp(); }
   if (visible(help)) return;
   if (!started) return;
@@ -730,16 +736,120 @@ document.addEventListener('keydown', e => {
   u.insertBefore(b, document.getElementById('u-btn'));
 })();
 
+// ---------- Petunjuk bermain ----------
+const TUTOR_STEPS = [
+  {t: '📊 Bilah ringkasan', tx: 'Uang 💰, poin riset 🔬, bahan bakar ⛽, reputasi ⭐, dan hari 📅. Satu hari = 20 detik; gaji staf dipotong tiap hari.', sel: ['#summary .stats'], tab: 'base', side: ['bottom']},
+  {t: '🧭 Menu tab', tx: 'Pindah layar lewat menu ini atau tekan angka <kbd class="inl">1</kbd>–<kbd class="inl">7</kbd>.', sel: ['#tabs'], side: ['right']},
+  {t: '💰 Cara kerja uang', tx: 'Uang keluar untuk roket, upgrade, dan gaji. Uang masuk dari hadiah kontrak. Untung = hadiah − biaya roket; kalau gagal, roket hilang.', sel: ['#summary .stats span'], tab: 'base', side: ['bottom']},
+  {t: '🛠️ Rakit roket', tx: 'Pilih mesin, tangki, dan panduan, lalu Rakit. Daya angkut harus ≥ massa muatan. Cara cepat: <b>Rakit roket termurah</b> di Markas (<kbd class="inl">R</kbd>).', sel: ['#view [data-act=build]'], tab: 'hangar'},
+  {t: '🎯 Pilih kontrak', tx: 'Angka % = peluang sukses. Mulai dari satelit kecil; sukses menaikkan ⭐ dan membuka kontrak lebih besar.', sel: ['#view .grid > .card:nth-child(2)', '#view .card'], tab: 'mis', side: ['bottom', 'right', 'top']},
+  {t: '🚀 Luncurkan', tx: 'Pilih roket lalu tekan <b>Luncurkan</b>. Pastikan bahan bakar ⛽ cukup.', sel: ['#view [data-act=launch]', '#view .grid > .card:nth-child(2)'], tab: 'mis', side: ['bottom', 'right', 'top']},
+  {t: '⬆️ Upgrade fasilitas', tx: 'Launch Pad menentukan mesin terkuat, Control Center menambah keandalan.', sel: ['#view [data-act=fac]'], tab: 'fac'},
+  {t: '🔬 Riset', tx: 'Poin riset membuka mesin, tangki, dan navigasi yang lebih baik.', sel: ['#view [data-act=tech]'], tab: 'tech'},
+  {t: '🛟 Agar tidak bangkrut', tx: 'Awasi peringatan di Markas dan sisakan uang untuk gaji. Uang dan roket habis? Di tab Misi pakai Uji Statis (<kbd class="inl">T</kbd>) atau Hibah Darurat (<kbd class="inl">H</kbd>).', sel: ['#view .card.span'], tab: 'base', side: ['bottom', 'top']},
+  {t: '📖 Buka lagi kapan saja', tx: 'Tombol <b>Petunjuk</b> (atau <kbd class="inl">N</kbd> / <kbd class="inl">F1</kbd>) membuka tur ini lagi.', sel: ['#guide-btn'], side: ['right']},
+];
+let guideStep = -1, guideTab0 = null, guideTimer = null;
+function renderGuide() {
+  const g = document.getElementById('guide'), n = TUTOR_STEPS.length;
+  const off = `<label class="chk g-off"><input type="checkbox" id="guide-off" ${S.guideOff ? 'checked' : ''}> Jangan tampilkan lagi saat game baru</label><div class="mut">Esc untuk menutup · ← → untuk berpindah</div>`;
+  if (guideStep < 0) {
+    g.classList.remove('tour');
+    g.innerHTML = `<div class="box"><h3>🚀 Selamat datang di ROKET Tycoon</h3>
+      <p>Kelola base peluncuran: rakit roket, ambil kontrak, dan jaga kas tetap sehat. Mau tur singkat yang menunjuk bagian-bagian layar?</p>
+      <div class="g-row"><button class="btn" data-g="start">Ikuti panduan</button><button class="btn alt" data-g="skip">Lewati, langsung main</button></div>${off}</div>`;
+    const f = g.querySelector('[data-g]'); if (f) f.focus();
+    return;
+  }
+  const s = TUTOR_STEPS[guideStep], last = guideStep === n - 1;
+  if (s.tab && S.tab !== s.tab) { S.tab = s.tab; render(); }
+  g.classList.add('tour');
+  g.innerHTML = `<div class="g-spot"></div><div class="box g-pop"><i class="g-arrow"></i>
+    <div class="mut">Langkah ${guideStep + 1} dari ${n}</div><h3>${s.t}</h3><p>${s.tx}</p>
+    <div class="g-row">${guideStep > 0 ? '<button class="btn alt" data-g="prev">Kembali</button>' : ''}<button class="btn" data-g="${last ? 'skip' : 'next'}">${last ? 'Selesai, main!' : 'Lanjut'}</button>${last ? '' : '<button class="btn danger" data-g="skip">Lewati</button>'}</div>${off}</div>`;
+  const f = g.querySelector('[data-g=next],[data-g=skip]'); if (f) f.focus({preventScroll: true});
+  const el = guideTarget(s); if (el) el.scrollIntoView({block: 'center', inline: 'nearest'});
+  placeTour();
+}
+function guideTarget(s) {
+  for (const q of s.sel) { const el = document.querySelector(q); if (el) { const r = el.getBoundingClientRect(); if (r.width > 0 && r.height > 0) return el; } }
+  return null;
+}
+function placeTour() {
+  const g = document.getElementById('guide');
+  if (!g || g.classList.contains('hidden') || !g.classList.contains('tour') || guideStep < 0) return;
+  const pop = g.querySelector('.g-pop'), spot = g.querySelector('.g-spot'), arrow = g.querySelector('.g-arrow');
+  if (!pop) return;
+  const s = TUTOR_STEPS[guideStep], el = guideTarget(s), vw = window.innerWidth, vh = window.innerHeight, m = 10, gap = 16;
+  pop.style.maxWidth = Math.min(340, vw - 2 * m) + 'px';
+  const pw = pop.offsetWidth, ph = pop.offsetHeight, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  if (!el) { spot.style.display = 'none'; arrow.style.display = 'none'; pop.style.left = (vw - pw) / 2 + 'px'; pop.style.top = Math.max(m, (vh - ph) / 2) + 'px'; return; }
+  const r = el.getBoundingClientRect(), pad = 6;
+  const sx = Math.max(0, r.left - pad), sy = Math.max(0, r.top - pad), sw = Math.min(vw, r.right + pad) - sx, sh = Math.min(vh, r.bottom + pad) - sy;
+  spot.style.display = 'block'; spot.style.left = sx + 'px'; spot.style.top = sy + 'px'; spot.style.width = sw + 'px'; spot.style.height = sh + 'px';
+  const cx = sx + sw / 2, cy = sy + sh / 2;
+  const fits = {
+    right: sx + sw + gap + pw <= vw - m, left: sx - gap - pw >= m,
+    bottom: sy + sh + gap + ph <= vh - m, top: sy - gap - ph >= m,
+  };
+  const side = (s.side || ['bottom', 'right', 'top', 'left']).concat(['bottom', 'right', 'top', 'left']).find(k => fits[k]);
+  let x, y;
+  if (!side) { x = clamp(cx - pw / 2, m, vw - pw - m); y = clamp(sy + sh + gap, m, vh - ph - m); arrow.style.display = 'none'; }
+  else {
+    if (side === 'right' || side === 'left') { x = side === 'right' ? sx + sw + gap : sx - gap - pw; y = clamp(cy - ph / 2, m, vh - ph - m); }
+    else { y = side === 'bottom' ? sy + sh + gap : sy - gap - ph; x = clamp(cx - pw / 2, m, vw - pw - m); }
+    arrow.style.display = 'block'; arrow.className = 'g-arrow a-' + side;
+    if (side === 'right' || side === 'left') arrow.style.cssText = `top:${clamp(cy - y, 16, ph - 16)}px`;
+    else arrow.style.cssText = `left:${clamp(cx - x, 16, pw - 16)}px`;
+  }
+  pop.style.left = x + 'px'; pop.style.top = y + 'px';
+}
+function guideGo(d) {
+  if (guideStep < 0) return;
+  const n = guideStep + d; if (n < 0) return;
+  if (n >= TUTOR_STEPS.length) return closeGuide();
+  guideStep = n; renderGuide();
+}
+function openGuide(step) {
+  let g = document.getElementById('guide');
+  if (!g) {
+    g = document.createElement('div'); g.id = 'guide'; g.className = 'hidden'; document.body.appendChild(g);
+    g.addEventListener('click', e => {
+      const a = e.target.closest('[data-g]');
+      if (!a) { if (e.target === g && !g.classList.contains('tour')) closeGuide(); return; }
+      if (a.dataset.g === 'start') { guideTab0 = S.tab; guideStep = 0; renderGuide(); }
+      else if (a.dataset.g === 'next') guideGo(1);
+      else if (a.dataset.g === 'prev') guideGo(-1);
+      else closeGuide();
+    });
+    g.addEventListener('change', e => { if (e.target.id === 'guide-off') { S.guideOff = e.target.checked; save(); } });
+    window.addEventListener('resize', placeTour);
+    window.addEventListener('scroll', placeTour, true);
+  }
+  const h = document.getElementById('help'); if (h) h.classList.add('hidden');
+  guideStep = step; S.guideSeen = true; renderGuide(); g.classList.remove('hidden');
+  clearInterval(guideTimer); guideTimer = setInterval(placeTour, 400);
+}
+function closeGuide() {
+  const g = document.getElementById('guide'); if (g) g.classList.add('hidden');
+  clearInterval(guideTimer);
+  if (guideTab0 && S.tab !== guideTab0) { S.tab = guideTab0; render(); }
+  guideTab0 = null; guideStep = -1;
+  save();
+}
+
 // ---------- Init ----------
 let started = false;
 function startGame(fromServer) {
+  let isNew = false;
   if (fromServer) { S = Object.assign(newState(), fromServer); }
-  else if (!load()) S = newState();
+  else if (!load()) { S = newState(); isNew = true; }
   else {
     const away = Math.min(600, (Date.now() - S.last) / 1000);
     if (away > 5) { S.fuel = Math.min(fuelMax(), S.fuel + fuelRate() * away); S.rp += rpRate() * away * .5; setTimeout(() => toast(`Selamat datang kembali! Produksi offline ${Math.round(away)} dtk.`), 300); }
   }
   refreshContracts(); render(); updateUser();
+  if (isNew && !S.guideOff) setTimeout(() => openGuide(-1), 300);
   if (!started) { started = true; setInterval(tick, 1000); setInterval(save, 5000); window.addEventListener('beforeunload', save); }
 }
 function updateUser() {
